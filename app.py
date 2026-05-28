@@ -83,7 +83,7 @@ if "pat_token" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 if "page" not in st.session_state:
-    st.session_state.page = "Overview"
+    st.session_state.page = "Overview" if st.session_state.pat_token else "Settings"
 
 PAGES = ["Settings", "Overview", "Clusters", "Pipelines", "Warehouses"]
 
