@@ -129,6 +129,8 @@ st.markdown(
 
 if "pat_token" not in st.session_state:
     st.session_state.pat_token = ""
+if "pat_scopes" not in st.session_state:
+    st.session_state.pat_scopes = ["clusters", "pipelines", "sql"]
 if "history" not in st.session_state:
     st.session_state.history = []
 if "page" not in st.session_state:
@@ -167,16 +169,23 @@ def _page_settings() -> None:
 
         ### Required permissions
 
-        Databricks PATs inherit the generating user's workspace permissions.
-        Make sure that user has at least **read** access to the resources TruProxy monitors:
+        Databricks PATs inherit the generating user's workspace permissions. Make sure you grant `read access` to the following resources:
 
-        - **Compute → All-purpose & Job clusters** — `Can View`
-        - **Delta Live Tables → Pipelines** — `Can View`
-        - **SQL Warehouses** — `Can View`
-
-        Paste the token below to start monitoring.
+        When creating the PAT, make sure to select **all** of the following
+        API scopes so TruProxy can read every resource it monitors:
         """
     )
+
+    SCOPE_OPTIONS = ["clusters", "pipelines", "sql"]
+    pat_scopes = st.pills(
+        "API scopes",
+        options=SCOPE_OPTIONS,
+        default=st.session_state.pat_scopes,
+        selection_mode="multi",
+        label_visibility="collapsed",
+    )
+
+    st.markdown("Paste the token below to start monitoring.")
 
     with st.form("settings_form"):
         pat_token = st.text_input(
@@ -188,6 +197,7 @@ def _page_settings() -> None:
         submitted = st.form_submit_button("Save")
         if submitted:
             st.session_state.pat_token = pat_token.strip()
+            st.session_state.pat_scopes = pat_scopes or []
             # Reset TruProxy so it reinitialises with the new token
             st.session_state.pop("tp", None)
             st.session_state.history = []
