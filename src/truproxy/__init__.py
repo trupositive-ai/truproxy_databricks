@@ -33,10 +33,12 @@ def _find_binary() -> str:
                 os.chmod(path, current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
             return path
     raise FileNotFoundError(
-        "truproxy-core binary not found.\n"
-        "  Databricks App: run .\\build-linux.ps1 (needs WSL + Rust), then commit bin/truproxy-core\n"
-        "  Local Windows:  cd truproxy-core && cargo build --release\n"
-        "  Local Linux:    cd truproxy-core && cargo build --release && cp target/release/truproxy-core ../bin/truproxy-core"
+        "TruProxy could not find its core binary (bin/truproxy-core).\n\n"
+        "This usually means the repository was not cloned completely.\n"
+        "  1. In your Databricks Git Folder, click 'Pull' to refresh from the main branch.\n"
+        "  2. Verify that bin/truproxy-core exists in the repository.\n"
+        "  3. If the problem persists, open an issue at "
+        "https://github.com/trupositive-ai/truproxy_databricks/issues"
     )
 
 

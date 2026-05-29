@@ -1,6 +1,10 @@
-command: [
-  "streamlit", 
-  "run",
-  "app.py"
-]
+command:
+  - streamlit
+  - run
+  - app.py
 
+env:
+  - name: TRUPROXY_REGION
+    value: EU_WEST   # Change to match your workspace region (e.g. US_EAST, US_WEST, AP_SOUTHEAST)
+  - name: TRUPROXY_TIER
+    value: PREMIUM
