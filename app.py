@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 import altair as alt
@@ -8,13 +9,18 @@ from databricks.sdk import WorkspaceClient
 
 from src.truproxy import TruProxy
 
-w = WorkspaceClient()
-WORKSPACE_URL = w.config.host
+try:
+    w = WorkspaceClient()
+    WORKSPACE_URL = w.config.host
+except Exception:
+    WORKSPACE_URL = ""
 
-TIER = "PREMIUM"
-REGION = "EU_WEST"
+TIER = os.getenv("TRUPROXY_TIER", "PREMIUM")
+REGION = os.getenv("TRUPROXY_REGION", "EU_WEST")
 MAX_HISTORY = 120  # 10 min at 5 s intervals
 PROXY_TYPES = ["cluster", "pipeline", "warehouse"]
+
+_VERSION = open(os.path.join(os.path.dirname(__file__), "VERSION")).read().strip()
 
 st.set_page_config(page_title="TruProxy Cost Monitor", page_icon="💸", layout="wide")
 
@@ -99,6 +105,7 @@ with st.sidebar:
         ):
             st.session_state.page = _nav
             st.rerun()
+    st.caption(f"v{_VERSION}")
 
 page = st.session_state.page
 
@@ -107,6 +114,14 @@ page = st.session_state.page
 def _page_settings() -> None:
     st.header("Settings")
 
+    if WORKSPACE_URL:
+        st.info(f"Connected to workspace: {WORKSPACE_URL}")
+    else:
+        st.warning(
+            "Could not detect workspace URL automatically. "
+            "Ensure TruProxy is deployed as a Databricks App."
+        )
+
     st.markdown(
         """
         ### Create a Databricks Personal Access Token
@@ -114,6 +129,8 @@ def _page_settings() -> None:
         1. In your Databricks workspace, click your **user avatar** (top-right) → **Settings**.
         2. Go to **Developer** → **Access tokens** → **Manage**.
         3. Click **Generate new token**, add a comment (e.g. `TruProxy`) and set a lifetime.
+           **Important:** When the token expires, monitoring stops silently. A lifetime of
+           90 days is recommended for beta testing.
         4. Click **Generate** and copy the token (starts with `dapi…`) — it is shown only once.
 
         ### Required permissions
@@ -242,14 +259,24 @@ def _page_proxy(pt: str, hist: pd.DataFrame) -> None:
 @st.fragment(run_every=5)
 def dashboard(page: str) -> None:
     if not st.session_state.pat_token:
-        st.warning("Configure your Personal Access Token in **Settings** to start monitoring.")
+        st.warning("No Personal Access Token configured.")
+        if st.button("Go to Settings"):
+            st.session_state.page = "Settings"
+            st.rerun()
         return
 
     if "tp" not in st.session_state:
-        st.session_state.tp = TruProxy(
-            token=st.session_state.pat_token,
-            workspace_url=WORKSPACE_URL,
-        )
+        try:
+            st.session_state.tp = TruProxy(
+                token=st.session_state.pat_token,
+                workspace_url=WORKSPACE_URL,
+            )
+        except FileNotFoundError as e:
+            st.error(str(e))
+            return
+        except Exception as e:
+            st.error(f"Failed to initialise TruProxy: {e}")
+            return
 
     try:
         df = st.session_state.tp.get(tier=TIER, region=REGION)

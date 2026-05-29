@@ -1,0 +1,21 @@
+name: Feature Request / Feedback
+description: Suggest an improvement or share beta feedback
+labels: ["enhancement", "beta-feedback"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Proposed solution or improvement
+
+  - type: input
+    id: version
+    attributes:
+      label: TruProxy version
+      placeholder: v0.1.0-beta

@@ -1,0 +1,63 @@
+name: Bug Report
+description: Report a problem with TruProxy
+labels: ["bug", "beta-feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing TruProxy! Please fill in as much detail as possible.
+
+  - type: input
+    id: version
+    attributes:
+      label: TruProxy version
+      description: Found in the sidebar footer (e.g. v0.1.0-beta)
+      placeholder: v0.1.0-beta
+    validations:
+      required: true
+
+  - type: dropdown
+    id: workspace-region
+    attributes:
+      label: Databricks workspace region
+      options:
+        - EU_WEST (Ireland)
+        - US_EAST (N. Virginia)
+        - US_WEST (Oregon)
+        - AP_SOUTHEAST (Singapore)
+        - Other (specify in description)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: resource-type
+    attributes:
+      label: Affected resource type
+      multiple: true
+      options:
+        - Clusters
+        - Pipelines
+        - Warehouses
+        - Settings / token
+        - Overview
+        - All / unsure
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe what you did, what you expected, and what actually happened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-message
+    attributes:
+      label: Error message or screenshot
+      description: Paste any error text shown in the app, or attach a screenshot.
+
+  - type: textarea
+    id: deployment-log
+    attributes:
+      label: Deployment log snippet (if deploy failed)
+      render: shell
