@@ -1,4 +1,3 @@
-import os
 from datetime import datetime
 
 import altair as alt
@@ -9,18 +8,62 @@ from databricks.sdk import WorkspaceClient
 
 from src.truproxy import TruProxy
 
-try:
-    w = WorkspaceClient()
-    WORKSPACE_URL = w.config.host
-except Exception:
-    WORKSPACE_URL = ""
+w = WorkspaceClient()
+WORKSPACE_URL = w.config.host
 
-TIER = os.getenv("TRUPROXY_TIER", "PREMIUM")
-REGION = os.getenv("TRUPROXY_REGION", "EU_WEST")
+TIER = "PREMIUM"
+REGION = "EU_WEST"
 MAX_HISTORY = 120  # 10 min at 5 s intervals
 PROXY_TYPES = ["cluster", "pipeline", "warehouse"]
-
-_VERSION = open(os.path.join(os.path.dirname(__file__), "VERSION")).read().strip()
+TOTAL_GRAY = "#e0e0e0"
+CLUSTER_CREAM = "#cfe2f3"
+PIPELINE_CREAM = "#d9ead3"
+WAREHOUSE_CREAM = "#fce5cd"
+CLUSTER_BLUE = "#2196f3"
+CLUSTER_BLUE_PALETTE = [
+    "#42a5f5",  # sky blue
+    "#2962ff",  # electric blue
+    "#00bcd4",  # bright cyan
+    "#7986cb",  # periwinkle
+    "#81d4fa",  # pale sky
+    "#9575cd",  # light purple-blue
+    "#4fc3f7",  # light azure
+]
+PIPELINE_GREEN = "#2ca02c"
+PIPELINE_GREEN_PALETTE = [
+    "#66bb6a",  # medium green
+    "#00e676",  # bright green
+    "#9ccc65",  # lime
+    "#26a69a",  # teal-green
+    "#aed581",  # light lime
+    "#4db6ac",  # bright teal
+    "#80cbc4",  # pale mint
+]
+WAREHOUSE_ORANGE = "#ff7f0e"
+WAREHOUSE_ORANGE_PALETTE = [
+    "#ff3d00",  # vivid vermillion (red-orange end)
+    "#ff9800",  # pure bright orange
+    "#ffc107",  # golden amber (yellow-orange end)
+    "#ff7043",  # coral (pink-leaning)
+    "#ffab40",  # light gold
+    "#ffe082",  # pale cream-amber
+    "#ffcc80",  # pale peach
+]
+PROXY_COLOR = {
+    "cluster": CLUSTER_BLUE,
+    "pipeline": PIPELINE_GREEN,
+    "warehouse": WAREHOUSE_ORANGE,
+}
+PROXY_TOTAL_COLOR = {
+    "cluster": CLUSTER_CREAM,
+    "pipeline": PIPELINE_CREAM,
+    "warehouse": WAREHOUSE_CREAM,
+}
+PROXY_PALETTE = {
+    "cluster": CLUSTER_BLUE_PALETTE,
+    "pipeline": PIPELINE_GREEN_PALETTE,
+    "warehouse": WAREHOUSE_ORANGE_PALETTE,
+}
 
 st.set_page_config(page_title="TruProxy Cost Monitor", page_icon="💸", layout="wide")
 
@@ -105,7 +148,6 @@ with st.sidebar:
         ):
             st.session_state.page = _nav
             st.rerun()
-    st.caption(f"v{_VERSION}")
 
 page = st.session_state.page
 
@@ -114,14 +156,6 @@ page = st.session_state.page
 def _page_settings() -> None:
     st.header("Settings")
 
-    if WORKSPACE_URL:
-        st.info(f"Connected to workspace: {WORKSPACE_URL}")
-    else:
-        st.warning(
-            "Could not detect workspace URL automatically. "
-            "Ensure TruProxy is deployed as a Databricks App."
-        )
-
     st.markdown(
         """
         ### Create a Databricks Personal Access Token
@@ -129,8 +163,6 @@ def _page_settings() -> None:
         1. In your Databricks workspace, click your **user avatar** (top-right) → **Settings**.
         2. Go to **Developer** → **Access tokens** → **Manage**.
         3. Click **Generate new token**, add a comment (e.g. `TruProxy`) and set a lifetime.
-           **Important:** When the token expires, monitoring stops silently. A lifetime of
-           90 days is recommended for beta testing.
         4. Click **Generate** and copy the token (starts with `dapi…`) — it is shown only once.
 
         ### Required permissions
@@ -163,12 +195,25 @@ def _page_settings() -> None:
 
 
 # ---- Data fetch + history ----
-def _line_chart(df: pd.DataFrame, value_cols: list[str], height: int = 300) -> None:
+def _line_chart(
+    df: pd.DataFrame,
+    value_cols: list[str],
+    height: int = 300,
+    color_scale: alt.Scale | None = None,
+) -> None:
     long = (
         df[value_cols]
         .reset_index()
         .melt("timestamp", var_name="series", value_name="cost")
     )
+
+    color = alt.Color(
+        "series:N",
+        title=None,
+        legend=alt.Legend(orient="bottom", direction="horizontal"),
+    )
+    if color_scale is not None:
+        color = color.scale(color_scale)
 
     base = alt.Chart(long).encode(
         x=alt.X(
@@ -176,8 +221,8 @@ def _line_chart(df: pd.DataFrame, value_cols: list[str], height: int = 300) -> N
             title=None,
             axis=alt.Axis(format="%H:%M:%S", tickCount=6, labelOverlap=True),
         ),
-        y=alt.Y("cost:Q", title="$/hr"),
-        color=alt.Color("series:N", title=None),
+        y=alt.Y("cost:Q", title="$/hr", axis=alt.Axis(format="$.2f")),
+        color=color,
     )
 
     lines = base.mark_line()
@@ -224,14 +269,19 @@ def _page_overview(hist: pd.DataFrame) -> None:
 
     st.subheader("Total Cost ($/hr)")
     if "Total" in hist.columns:
-        _line_chart(hist, ["Total"])
+        total_scale = alt.Scale(domain=["Total"], range=[TOTAL_GRAY])
+        _line_chart(hist, ["Total"], color_scale=total_scale)
     else:
         st.info("Waiting for data…")
 
     st.subheader("Cost by Proxy Type ($/hr)")
     type_cols = [pt.capitalize() for pt in PROXY_TYPES if pt.capitalize() in hist.columns]
     if type_cols:
-        _line_chart(hist, type_cols)
+        type_color_scale = alt.Scale(
+            domain=["Cluster", "Pipeline", "Warehouse"],
+            range=[CLUSTER_BLUE, PIPELINE_GREEN, WAREHOUSE_ORANGE],
+        )
+        _line_chart(hist, type_cols, color_scale=type_color_scale)
     else:
         st.info("Waiting for data…")
 
@@ -240,9 +290,14 @@ def _page_proxy(pt: str, hist: pd.DataFrame) -> None:
     label = pt.capitalize()
     st.header(f"{label}s")
 
+    total_color = PROXY_TOTAL_COLOR.get(pt)
+    total_scale = (
+        alt.Scale(domain=[label], range=[total_color]) if total_color else None
+    )
+
     st.subheader(f"{label} Total Cost ($/hr)")
     if label in hist.columns:
-        _line_chart(hist, [label])
+        _line_chart(hist, [label], color_scale=total_scale)
     else:
         st.info("No data yet.")
 
@@ -251,7 +306,11 @@ def _page_proxy(pt: str, hist: pd.DataFrame) -> None:
     if name_cols:
         renamed = hist[name_cols].copy()
         renamed.columns = [c.split(":", 1)[1] for c in name_cols]
-        _line_chart(renamed, list(renamed.columns))
+        palette = PROXY_PALETTE.get(pt)
+        resource_scale = (
+            alt.Scale(domain=list(renamed.columns), range=palette) if palette else None
+        )
+        _line_chart(renamed, list(renamed.columns), color_scale=resource_scale)
     else:
         st.info("No active resources.")
 
@@ -259,24 +318,14 @@ def _page_proxy(pt: str, hist: pd.DataFrame) -> None:
 @st.fragment(run_every=5)
 def dashboard(page: str) -> None:
     if not st.session_state.pat_token:
-        st.warning("No Personal Access Token configured.")
-        if st.button("Go to Settings"):
-            st.session_state.page = "Settings"
-            st.rerun()
+        st.warning("Configure your Personal Access Token in **Settings** to start monitoring.")
         return
 
     if "tp" not in st.session_state:
-        try:
-            st.session_state.tp = TruProxy(
-                token=st.session_state.pat_token,
-                workspace_url=WORKSPACE_URL,
-            )
-        except FileNotFoundError as e:
-            st.error(str(e))
-            return
-        except Exception as e:
-            st.error(f"Failed to initialise TruProxy: {e}")
-            return
+        st.session_state.tp = TruProxy(
+            token=st.session_state.pat_token,
+            workspace_url=WORKSPACE_URL,
+        )
 
     try:
         df = st.session_state.tp.get(tier=TIER, region=REGION)
