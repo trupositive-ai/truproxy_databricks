@@ -14,7 +14,7 @@ WORKSPACE_URL = w.config.host
 TIER = "PREMIUM"
 REGION = "EU_WEST"
 MAX_HISTORY = 120  # 10 min at 5 s intervals
-PROXY_TYPES = ["cluster", "pipeline", "warehouse"]
+PROXY_TYPES = ["cluster", "pipeline", "warehouse", "app"]
 TOTAL_GRAY = "#e0e0e0"
 CLUSTER_CREAM = "#cfe2f3"
 PIPELINE_CREAM = "#d9ead3"
@@ -49,20 +49,34 @@ WAREHOUSE_ORANGE_PALETTE = [
     "#ffe082",  # pale cream-amber
     "#ffcc80",  # pale peach
 ]
+APP_CREAM = "#fce4ec"
+APP_PINK = "#e91e63"
+APP_PINK_PALETTE = [
+    "#f06292",
+    "#ec407a",
+    "#ff4081",
+    "#f48fb1",
+    "#ff80ab",
+    "#f8bbd0",
+    "#ad1457",
+]
 PROXY_COLOR = {
     "cluster": CLUSTER_BLUE,
     "pipeline": PIPELINE_GREEN,
     "warehouse": WAREHOUSE_ORANGE,
+    "app": APP_PINK,
 }
 PROXY_TOTAL_COLOR = {
     "cluster": CLUSTER_CREAM,
     "pipeline": PIPELINE_CREAM,
     "warehouse": WAREHOUSE_CREAM,
+    "app": APP_CREAM,
 }
 PROXY_PALETTE = {
     "cluster": CLUSTER_BLUE_PALETTE,
     "pipeline": PIPELINE_GREEN_PALETTE,
     "warehouse": WAREHOUSE_ORANGE_PALETTE,
+    "app": APP_PINK_PALETTE,
 }
 
 st.set_page_config(page_title="TruProxy Cost Monitor", page_icon="💸", layout="wide")
@@ -130,13 +144,13 @@ st.markdown(
 if "pat_token" not in st.session_state:
     st.session_state.pat_token = ""
 if "pat_scopes" not in st.session_state:
-    st.session_state.pat_scopes = ["clusters", "pipelines", "sql"]
+    st.session_state.pat_scopes = ["clusters", "pipelines", "sql", "apps"]
 if "history" not in st.session_state:
     st.session_state.history = []
 if "page" not in st.session_state:
     st.session_state.page = "Overview" if st.session_state.pat_token else "Settings"
 
-PAGES = ["Settings", "Overview", "Clusters", "Pipelines", "Warehouses"]
+PAGES = ["Settings", "Overview", "Clusters", "Pipelines", "Warehouses", "Apps"]
 
 # ---- Sidebar navigation ----
 with st.sidebar:
@@ -172,11 +186,12 @@ def _page_settings() -> None:
         Databricks PATs inherit the generating user's workspace permissions. Make sure you grant `read access` to the following resources:
 
         When creating the PAT, make sure to select **all** of the following
-        API scopes so TruProxy can read every resource it monitors:
+        API scopes so TruProxy can read every resource it monitors (including
+        Databricks Apps via `/api/2.0/apps`):
         """
     )
 
-    SCOPE_OPTIONS = ["clusters", "pipelines", "sql"]
+    SCOPE_OPTIONS = ["clusters", "pipelines", "sql", "apps"]
     pat_scopes = st.pills(
         "API scopes",
         options=SCOPE_OPTIONS,
@@ -288,8 +303,8 @@ def _page_overview(hist: pd.DataFrame) -> None:
     type_cols = [pt.capitalize() for pt in PROXY_TYPES if pt.capitalize() in hist.columns]
     if type_cols:
         type_color_scale = alt.Scale(
-            domain=["Cluster", "Pipeline", "Warehouse"],
-            range=[CLUSTER_BLUE, PIPELINE_GREEN, WAREHOUSE_ORANGE],
+            domain=["Cluster", "Pipeline", "Warehouse", "App"],
+            range=[CLUSTER_BLUE, PIPELINE_GREEN, WAREHOUSE_ORANGE, APP_PINK],
         )
         _line_chart(hist, type_cols, color_scale=type_color_scale)
     else:
@@ -369,8 +384,10 @@ def dashboard(page: str) -> None:
         _page_proxy("cluster", hist)
     elif page == "Pipelines":
         _page_proxy("pipeline", hist)
-    else:
+    elif page == "Warehouses":
         _page_proxy("warehouse", hist)
+    elif page == "Apps":
+        _page_proxy("app", hist)
 
     st.caption(f"Last updated {now.strftime('%H:%M:%S')} · refreshes every 5 s")
 
