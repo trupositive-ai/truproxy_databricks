@@ -1,6 +1,6 @@
 # TruProxy Cost Monitor
 
-Real-time Databricks resource cost monitoring — clusters, pipelines, and SQL warehouses.
+Real-time Databricks resource cost monitoring — clusters, pipelines, SQL warehouses, and Apps.
 
 ## Requirements
 
