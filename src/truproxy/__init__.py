@@ -11,6 +11,8 @@ _SCHEMA = {
     "proxy_type": pl.Utf8,
     "total_cost": pl.Float64,
     "state": pl.Utf8,
+    "service_id": pl.Utf8,
+    "creator": pl.Utf8,
 }
 
 # Three levels up from src/truproxy/__init__.py → project root
@@ -66,6 +68,12 @@ class TruProxy:
         records = json.loads(result.stdout)
         if not records:
             return pl.DataFrame(schema=_SCHEMA)
+        # Fill in any schema fields the binary doesn't emit yet (e.g. older
+        # builds that pre-date the `creator` field) so downstream code can
+        # always rely on the full set of columns.
+        for rec in records:
+            for col in _SCHEMA:
+                rec.setdefault(col, None)
         return pl.DataFrame(records, schema=_SCHEMA)
 
     def get(self, tier: str = "PREMIUM", region: str = "EU_WEST") -> pl.DataFrame:
